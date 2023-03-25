@@ -32,7 +32,7 @@ Online shopping has become a part of modern everyday life. In 2022, global retai
 Through an online survey, the authors investigated whether the presence of a model wearing an article of clothing would increase a person's likelihood of considering the item to be fashionable and something worth buying. To test this hypothesis, the authors conducted an experiment in which participants were randomly assigned to either a treatment group, who saw a photo of a sweater or jersey worn by a model of their identified gender preference; or a control group, who saw a photo of the same sweater or jersey without a model.
 
 ```{r}
-survey <- fread('fashion_survey.csv')
+survey <- fread('data/fashion_survey.csv')
 survey <- survey[, list(age, gender, treatment, fashionability, willingness, cost)]
 ```
 
@@ -215,17 +215,17 @@ Liang, X., Hu, X., Meng, H., Jiang, J. and Wang, G. (2022), "How does model type
 ### Appendix
 
 ```{r}
-include_graphics("survey-men.png")
+include_graphics("data/images/survey-men.png")
 ```
 
 ```{r}
-include_graphics("survey-women.png")
+include_graphics("data/images/survey-women.png")
 ```
 
 ```{r}
-include_graphics("images-men.png")
+include_graphics("data/images/images-men.png")
 ```
 
 ```{r}
-include_graphics("images-women.png")
+include_graphics("data/images/images-women.png")
 ```
