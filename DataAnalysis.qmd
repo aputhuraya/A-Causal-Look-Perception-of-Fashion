@@ -1,0 +1,231 @@
+---
+title: "An Experimental Look: Changing Perceptions of Fashion Products through the Employment of Models"
+author: 
+  - "Alexander Heger, Sindhura Uppalapati, Bhagirath Bhardwaj"
+  - "Paulin Jesintha, Anish Puthuraya"
+echo: FALSE
+format:
+  pdf: 
+    fontsize: small
+  html: default
+include-in-header:
+  text: |
+    \usepackage{authblk}
+---
+
+```{r, include=FALSE}
+#importing libraries
+library(data.table)
+library(ggplot2)
+library(pwr)
+library(modelsummary)
+library(webr)
+library(dplyr)
+library(fixest)
+library(knitr)
+```
+
+### Introduction
+
+Online shopping has become a part of modern everyday life. In 2022, global retail e-commerce sales were estimated to exceed 5.7 trillion U.S. dollars (eMarketer). It is imperative that organizations ensure that their products are appealing and stand out in the crowded online marketplace. One important factor that can influence customers' perception of a product's appeal is the use of models in product images. Previous research has suggested that having a model wear a clothing item in a product image can positively impact consumers' perceptions of the item's fashionability and purchase intention (Liang et al.). The present experiment aims to investigate whether including a model in product images affects customers' perceptions of fashionability, purchase intention, and cost of clothing items in an online shopping context. This study aims to provide insights that can inform retailers' online product image strategies and ultimately enhance their marketing effectiveness.
+
+Through an online survey, the authors investigated whether the presence of a model wearing an article of clothing would increase a person's likelihood of considering the item to be fashionable and something worth buying. To test this hypothesis, the authors conducted an experiment in which participants were randomly assigned to either a treatment group, who saw a photo of a sweater or jersey worn by a model of their identified gender preference; or a control group, who saw a photo of the same sweater or jersey without a model.
+
+```{r}
+survey <- fread('fashion_survey.csv')
+survey <- survey[, list(age, gender, treatment, fashionability, willingness, cost)]
+```
+
+### **Method**
+
+#### *Participants*
+
+The authors shared their survey across their graduate school cohort, friends, family and other acquaintances. The team utilized LinkedIn, Slack, WhatsApp, and text messages to disseminate the survey to potential participants. Respondents filled in a Qualtrics managed survey, wherein they were asked to provide their email address, age group, and, gender based clothing section preference. The team closed the form on March 14, 2023 with `79` total respondents. Out of the total respondents, over `50` were affiliated with Boston University (provided email address ending in `@bu.edu`). To combat potential biases from the experiment's convenience sampling, the authors implemented randomization to ensure every participant was randomly assigned to treatment or control.
+
+#### *Randomization*
+
+The authors chose to randomize by blocking on the age and gender-based clothing section preferences provided in the demographic section of the survey to increase statistical power. The survey branched respondents by their preferred clothing section (Men's or Women's), then branched them again based on their age group. Within the groups "`18-26` years old","`27-35` years old", and "`36+` years old", Qualtrics randomized respondents to either the treatment or control survey version for their respective gender-preference. This format ensures a balanced, random distribution of treatment and control group respondents within each age demographic which will be validated in the **Post Experiment Randomization Test**. See **pages 8-9** for the Qualtrics survey flow.
+
+```{r, warning=FALSE, out.width="57%"}
+PD <- summarise(group_by(survey, gender, age), n = n())
+PieDonut(PD, aes(gender, age, count=n),r0 = 0, r1 = 0.85,
+         showPieName=FALSE, pieLabelSize=3, donutLabelSize=2)
+```
+
+#### *Procedure and Pilot Run*
+
+Prior to the release of the final survey, the authors conducted a pilot run to ensure data flow through the survey interface was as expected. During the pilot review, they noticed that some product images showed tags with clothing brand names and other information that could potentially influence the participants' perception of the item's fashionability, cost and their intent to purchase. Additionally, they realized that the survey would benefit from showing multiple images per group as well as images of clothing products for men and women. This would ensure that any singular item did not elicit an extreme response from a small group of respondents that could potentially skew the outcomes. See **pages 10-11** for the portfolio of images used in the survey.
+
+#### *Post-Experiment Randomization Test*
+
+The methods in this section validate that each block of the experiment's `79` respondents was properly randomized.
+
+A proportion test validates that two samples are proportional when the returned p-value is greater than `0.05`, indicating that there is no statistically significant difference in the two sample sizes.
+
+**Gender**
+
+```{r}
+cat("p-value for men's treatment and control: ", prop.test(
+  nrow(survey[(gender == "Men's" & treatment == 1), ]),
+  nrow(survey[(gender == "Men's"), ]),
+  0.5
+)$p.value, "\np-value for women's treatment and control: ", prop.test(
+  nrow(survey[(gender == "Women's" & treatment == 1), ]),
+  nrow(survey[(gender == "Women's"), ]),
+  0.5
+)$p.value)
+```
+
+Proportion tests with men's and women's treatment and control groups as samples indicate that all samples based on gender are proportional. The test on men's treatment and control groups returned a p-value of `1`, and that of women's treatment and control groups returned a p-value of `0.86`. Both of these values are larger than `0.05`, indicating that the null hypothesis that both groups are proportional cannot be ruled out.
+
+**Age Group**
+
+```{r, warning=FALSE}
+cat("p-value for 18-26 years old treatment and control: ", prop.test(
+  nrow(survey[(age == "18-26 years old" & treatment == 1), ]),
+  nrow(survey[(age == "18-26 years old"), ]),
+  0.5
+)$p.value, "\np-value for 27-35 years old treatment and control: ", prop.test(
+  nrow(survey[(age == "27-35 years old" & treatment == 1), ]),
+  nrow(survey[(age == "27-35 years old"), ]),
+  0.5
+)$p.value, "\np-value for 36+ years old treatment and control: ", prop.test(
+  nrow(survey[(age == "36+ years old" & treatment == 1), ]),
+  nrow(survey[(age == "36+ years old"), ]),
+  0.5
+)$p.value)
+```
+
+Applying this test to treatment and control groups based on age yields the same results. For each of the age demographics, `18-26` years old, `27-35` years old, and `36+` years old, the null hypothesis that the groups are equivalent cannot be rejected.
+
+### Data Analysis
+
+#### *Regression Analysis*
+
+```{r}
+#| echo: true
+models <- list(
+  "Fashionability" = feols(fashionability ~ treatment, data = survey, se = 'hetero'),
+  "Purchase Intention" = feols(willingness ~ treatment, data = survey, se = 'hetero'),
+  "Cost" = feols(cost ~ treatment, data = survey, se = 'hetero')
+)
+
+modelsummary(models, type = 'text', stars = T, output = 'markdown',
+  coef_map = c("treatment" = "Presence of Model", 
+               "(Intercept)" = "Intercept"),
+  gof_omit = c("AIC|BIC|Log|F|Adj"))
+```
+
+To estimate the average treatment effect ($\widehat{ATE}$) of employing models on consumer perceptions of fashionability, purchase intention, and price, the authors used a three-fold regression analysis. The intercept term in the regression table below represents the mean outcome of the control group for each independent variable. These values are statistically significant (`p < 0.001`) for Purchase Intention and Cost. The $\widehat{ATE}$ for the presence of a model, which is the treatment in this experiment, is shown at the top of the table under each independent variable.
+
+| Independent Variable                       | Range                                       |
+|--------------------------------------------|---------------------------------------------|
+| Fashionability (scale of `-2` to `2`)      | `-2` to `2` (in `1` point increments)       |
+| Cost (in USD, ranges from `$10` to `$100`) | `$10` to `$100` (in `15` dollar increments) |
+| Purchase Intention (scale of `-1` to `1`)  | `-1` to `1` (in `1` point increments)       |
+
+**Fashionability**
+
+The intercept of `-0.097` indicates that the control population for the experiment generally viewed the sweaters and jerseys in the survey to be somewhat unfashionable. In comparing the control group with the treatment group, however, there is an $\widehat{ATE}$ of `0.187`. While this is an imprecise estimate, due to a high relative standard error (`0.149`), the presence of a model in a product image increased consumer's perception of the product's fashionability.
+
+**Purchase Intention**
+
+Similar to Fashionability, mean Purchase Intention for the control group was low (`-0.338`), indicating a reluctance to purchase the sweaters and jerseys featured in the experiment. The $\widehat{ATE}$ is positive at `0.048` indicating, however imprecise (with standard error `0.091`), the positive effect of models to influence a consumer's purchase.
+
+**Cost**
+
+The control population in the experiment valued the featured clothing products at an average cost per item of \$`43.58`. The $\widehat{ATE}$ of \$`0.87` asserts a greater valuation of products when they are worn by a model versus displayed on their own. This conclusion, however, is also limited by a relatively high standard error of approximately \$`3.53`, making any causal inference statistically insignificant.
+
+#### *Interaction of Treatment and Gender*
+
+```{r}
+survey_codified = copy(survey)
+survey_codified[, gender := ifelse(gender == "Men's", 0, 1)]
+```
+
+```{r}
+#| echo: true
+
+model_cost <- feols(cost ~ treatment * gender, data = survey_codified, se = 'hetero')
+
+modelsummary(model_cost, type = 'text', stars = T, output = 'markdown',
+  gof_omit = c("AIC|BIC|Log|F|Adj"))
+```
+
+Above is the same regression analysis with the interaction term for gender, where *gender* = `0` represents men, and *gender* = `1` represents women. As can be observed:
+
+-   The $\widehat{ATE}$ for the presence of models is `-1.962` when the *gender* = `0`, meaning that for men, having the model in the product picture actually reduced the perceived valuation of products on average by `$1.96`.
+
+-   This $\widehat{ATE}$ becomes `6.581 - 1.962 = 4.619` when the *gender* = `1`, meaning that for women, the presence of the model increased the valuation of products on average by `$4.62`.
+
+These results, however imprecise due to high standard errors, showcase interesting variation of product perception in the presence of models by different genders.
+
+```{r, warning=FALSE}
+cost_by_gender <- survey[, by = list(treatment, gender), mean(cost)]
+cost_by_gender <- reshape(cost_by_gender, direction = "wide", idvar = "gender", timevar = "treatment")
+cost_by_gender[, ATE := V1.1 - V1.0]
+
+ggplot(cost_by_gender, aes(x = ATE, y = gender, fill=gender)) + 
+  geom_bar(stat = "identity", show.legend = FALSE, position = position_dodge(width = 0.1), width = 0.7) + 
+  xlab("ATE (in dollars)") + 
+  theme(panel.background = element_blank(), 
+        plot.background = element_blank(), 
+        panel.grid = element_blank(), axis.line = element_line(colour = "black"), 
+        axis.text = element_text(size = 12, family = "Arial"), 
+        axis.title = element_text(size = 14, face = "bold"), 
+        axis.line.y = element_blank(), axis.text.y = element_blank(), 
+        axis.title.y = element_blank(), aspect.ratio = 1/6) + 
+  geom_text(aes(label = gender), position = position_stack(vjust = 0.5))+ 
+  geom_vline(xintercept = 0, linetype = "solid", colour='black')+ 
+  annotate('text', x=-2.2,y=1,label="-1.96")+ annotate('text', x=4.85,y=2,label="4.62")
+```
+
+### Limitations
+
+This study observed the effect of models on perceptions of men's and women's sweaters and jerseys with regard to fashionability, intent to purchase, and price. Given the diversity of both human models, and products in the clothing industry, the findings may not be scalable to the industry as a whole. The small sample size in the experiment may have captured certain biases that influenced the general outcomes. For example, respondents may have been consciously aware that they were part of an experiment with assigned treatment and control groups, influencing them to respond in some manner that would better suit the intended outcomes. Other potential biases reside in the disproportionate age distribution and location of the respondents; namely, `22-26` year old students in Boston, Massachusetts. For example, this demographic may show homogeneous tendency towards a particular fashion sense, given their shared experience.
+
+The above impacts the external validity of the results and can make it difficult to apply outcomes in a global context. Analysis on a product-level would provide insight into the specific effect of a model on a particular clothing item, although this method is not feasible for creating a generalizable conclusion. 
+
+```{r}
+cat("Power of this experiment: ", 
+    pwr.t.test(n = 79, d = 0.874038/sd(survey[, cost]), 
+               sig.level=0.05, power=NULL)$power,
+    "\nRespondents required for 80% power: ",
+    pwr.t.test(n = NULL, d = 0.874038/15.614844, sig.level=0.05, power=0.8)$n)
+```
+
+The estimated outcomes of this experiment were not statistically significant due to its small sample size. According to R's `pwr.t.test` , the statistical power of this experiment is `0.064`, or `6.4%`. `80%` statistical power is a heuristic for sampling, which according to the same function would require more than `5,011` respondents.
+
+The authors further recognize that indicating one's willingness to purchase a product and actually purchasing a product are two separate behaviors, which may misalign the outcomes of this experiment with retailers' seeking to understand an effect on sales. Similarly, consumer valuation of an item versus actually buying an item are not the same thing, so these outcomes may not inform effective product pricing.
+
+### Conclusion
+
+Despite its limitations, this study provides valuable insights into the impact of using models in clothing product images on consumers' perceptions and purchase intentions.
+
+Overall, we find that displaying images of clothing items worn by models has a positive impact on the three outcome variables tracked by the survey: Fashionability, purchase intention, and item cost. However, it is worth noting that as discussed during the analysis, we see that the output from the regression analysis are limited by high standard errors.
+
+These findings are helpful to businesses in the fashion industry who are seeking to enhance the perceived value of their clothing items or increase likelihood of purchase intention among consumers. We conclude by indicating that further research with higher statistical power is needed to establish a full causal inference between the outlined outcome variables.
+
+### References
+
+eMarketer. (2022). Worldwide Retail and Ecommerce Sales: eMarketer's Estimates and Forecast. Retrieved from <https://www.emarketer.com/content/global-ecommerce-update-2022>
+
+Liang, X., Hu, X., Meng, H., Jiang, J. and Wang, G. (2022), "How does model type influence consumer and online fashion retailing?", International Journal of Retail & Distribution Management, Vol. 50 No. 6, pp. 728-743. <https://doi.org/10.1108/IJRDM-05-2021-0224>
+
+### Appendix
+
+```{r}
+include_graphics("survey-men.png")
+```
+
+```{r}
+include_graphics("survey-women.png")
+```
+
+```{r}
+include_graphics("images-men.png")
+```
+
+```{r}
+include_graphics("images-women.png")
+```
